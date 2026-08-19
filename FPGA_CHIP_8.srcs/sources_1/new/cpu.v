@@ -51,12 +51,14 @@ module cpu(
     localparam STATE_FETCH_1 = 3'd0; // First 8 bits 
     localparam STATE_FETCH_2 = 3'd1; // Last 8 bits
     localparam STATE_DECODE = 3'd2;
+    localparam STATE_CLEAR = 3'd3;
     
     always @(posedge clk) begin
         if (rst) begin
             state <= 0;
             pc <= 12'h200;
             read_wait <= 0;
+            vram_write_en <= 0;
         end
         
         else begin
@@ -93,8 +95,37 @@ module cpu(
                 
                 
                 STATE_DECODE: begin    
-                
+                    case(op[15:12])
+                        
+                        // Root 0: Must check lower 8 bits
+                        4'h0: begin
+                            if (op[7:0] == 8'hE0) begin
+                                // 00E0: Clear Screen
+                                vram_addr <= 0;
+                                state <= STATE_CLEAR;
+                            
+                            end
+                        
+                        end
                     
+                        default: begin
+                            state <= STATE_FETCH_1;
+                        end
+                    endcase
+                    
+                end
+                
+                // Goes through each pixel and clears data (set to 0)
+                STATE_CLEAR: begin
+                    if (vram_addr == 13'd6144) begin
+                        // Finished clearing screen, fetch next instruction
+                        vram_write_en <= 0;
+                        state <= STATE_FETCH_1;
+                    end else begin
+                        vram_write_en <= 1;
+                        vram_write_data <= 0;
+                        vram_addr <= vram_addr + 1;
+                    end
                 end
             
             
