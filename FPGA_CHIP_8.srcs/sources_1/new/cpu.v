@@ -103,11 +103,39 @@ module cpu(
                                 // 00E0: Clear Screen
                                 vram_addr <= 0;
                                 state <= STATE_CLEAR;
-                            
                             end
+                        end
+                        
+                        // Root 1: Jump, sets PC to NNN address
+                        4'h1: begin
+                            pc <= op[11:0];
+                            state <= STATE_FETCH_1;
+                        end
+                        
+                        // Root 6: Set (6XNN), set register VX to NN
+                        4'h6: begin
+                            v[op[11:8]] <= op[7:0];
+                            state <= STATE_FETCH_1;
+                        end
+                        
+                        // Root 7: Add (7XNN), add NN to VX
+                        4'h7: begin
+                            v[op[11:8]] <= op[7:0] + v[op[11:8]];
+                            state <= STATE_FETCH_1;
+                        end
+                        
+                        // Root A: Set index (ANNN), sets IR to NNN
+                        4'hA: begin
+                            ir <= op[11:0];
+                            state <= STATE_FETCH_1;
+                        end
+                        
+                        // Root D: Draw (DXYN), draws to screen
+                        4'hD: begin
+                            
                         
                         end
-                    
+                        
                         default: begin
                             state <= STATE_FETCH_1;
                         end
