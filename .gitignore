@@ -1,0 +1,12 @@
+# Vivado build files and directories
+*.jou
+*.log
+*.pb
+*.str
+*.wdb
+.Xil/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
