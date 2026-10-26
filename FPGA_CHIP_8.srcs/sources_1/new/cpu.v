@@ -45,6 +45,17 @@ module cpu(
     // General puprpose registers
     reg [7:0] v [0:15];
     
+    // Pixel coordinates
+    reg [5:0] start_x;
+    reg [4:0] start_y;
+    
+    // Loop trackers
+    reg [3:0] sprite_height; // Stores 'N' from opcode
+    reg [3:0] row_cnt; // Current row index 
+    reg [2:0] bit_cnt; // Current column index
+    reg [7:0] sprite_byte; // 8-bit row fetched from memory
+     
+    
     // States
     
     // Opcode needs 16 bits while ROM outputs 8 bits at a time
@@ -52,6 +63,9 @@ module cpu(
     localparam STATE_FETCH_2 = 3'd1; // Last 8 bits
     localparam STATE_DECODE = 3'd2;
     localparam STATE_CLEAR = 3'd3;
+    localparam STATE_DRAW_FETCH = 3'd4; // For fetching sprite bits from ROM
+    localparam STATE_DRAW_PIXEL = 3'd5;
+    
     
     always @(posedge clk) begin
         if (rst) begin
@@ -93,6 +107,30 @@ module cpu(
                     end
                 end
                 
+                STATE_DRAW_FETCH: begin
+                    // Sprites are stored in ROM starting at address held in IR
+                    rom_addr <= ir + row_cnt;
+                    
+                    // Wait for address to stablize 
+                    if (!read_wait) begin
+                        read_wait <= 1;
+                    end else begin
+                        read_wait <= 0;
+                        // Store fetched data into sprite register
+                        sprite_byte <= rom_instr;
+                        state <= STATE_DRAW_PIXEL;
+                    end
+                
+                end
+                
+                STATE_DRAW_PIXEL: begin
+                    if(sprite_byte[bit_cnt]) begin
+                        start_x <= start_x + bit_cnt;
+                        start_y <= start_y + row_cnt;
+                        v[15] <= 1; // Flag collision
+                    end
+                
+                end
                 
                 STATE_DECODE: begin    
                     case(op[15:12])
@@ -132,9 +170,21 @@ module cpu(
                         
                         // Root D: Draw (DXYN), draws to screen
                         4'hD: begin
+                            // Fetch starting x, y coordinates and sprite height
+                            start_x <= v[op[11:8]] % 64; 
+                            start_y <= v[op[7:4]] % 32;
+                            sprite_height <= op[3:0];
                             
-                        
+                            // Clear register 15
+                            v[15] <= 0;
+                            
+                            // Reset row and bit counter registers
+                            bit_cnt <= 0;
+                            row_cnt <= 0;
+                            
+                            state <= STATE_DRAW_FETCH;
                         end
+                        
                         
                         default: begin
                             state <= STATE_FETCH_1;
