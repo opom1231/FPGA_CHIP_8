@@ -204,6 +204,7 @@ module oled_top(
         .rom_instr(rom_data),
         
         // VRAM interface 
+        .vram_read_data(compute_state),
         .vram_addr(compute_addr),
         .vram_write_data(compute_next_state),
         .vram_write_en(compute_write_en)

@@ -1,8 +1,8 @@
 -- Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
 -- Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
 -- --------------------------------------------------------------------------------
--- Tool Version: Vivado v.2024.1 (win64) Build 5076996 Wed May 22 18:37:14 MDT 2024
--- Date        : Mon Aug  3 16:11:34 2026
+-- Tool Version: Vivado v.2024.1.2 (win64) Build 5164865 Thu Sep  5 14:37:11 MDT 2024
+-- Date        : Tue Oct 27 19:00:23 2026
 -- Host        : mc6030-01 running 64-bit major release  (build 9200)
 -- Command     : write_vhdl -force -mode synth_stub -rename_top frame_ram -prefix
 --               frame_ram_ frame_ram_stub.vhdl
@@ -37,6 +37,6 @@ attribute black_box_pad_pin : string;
 attribute syn_black_box of stub : architecture is true;
 attribute black_box_pad_pin of stub : architecture is "clka,ena,wea[0:0],addra[12:0],dina[0:0],douta[0:0],clkb,enb,web[0:0],addrb[12:0],dinb[0:0],doutb[0:0]";
 attribute x_core_info : string;
-attribute x_core_info of stub : architecture is "blk_mem_gen_v8_4_8,Vivado 2024.1";
+attribute x_core_info of stub : architecture is "blk_mem_gen_v8_4_8,Vivado 2024.1.2";
 begin
 end;

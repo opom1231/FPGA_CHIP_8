@@ -24,6 +24,7 @@ module cpu(
     input clk,
     input rst,
     input [7:0] rom_instr,
+    input vram_read_data,
     
     output reg [11:0] rom_addr,
     output reg cpu_write_en,
@@ -124,10 +125,50 @@ module cpu(
                 end
                 
                 STATE_DRAW_PIXEL: begin
-                    if(sprite_byte[bit_cnt]) begin
-                        start_x <= start_x + bit_cnt;
-                        start_y <= start_y + row_cnt;
-                        v[15] <= 1; // Flag collision
+                    vram_write_en <= 0;
+                    // Go through each of the 8 sprite bits fetched from ROM
+                    if(sprite_byte[7 - bit_cnt]) begin // Bit is ON
+                        // Calculate the VRAM address of current pixel
+                        vram_addr <= {2'b00, (start_y + row_cnt), (start_x + bit_cnt)};   
+                        vram_write_en <= 0; 
+                        
+                        // Wait for ROM output
+                        if(!read_wait) begin
+                            read_wait <= 1;
+                        end else begin
+                            read_wait <= 0;
+                            vram_write_en <= 1;
+                            vram_write_data <= ~vram_read_data;
+                            // Pixel in byte is handeled, advance counters
+                            if (bit_cnt < 7) begin
+                                bit_cnt <= bit_cnt + 1;
+                            end else if (row_cnt < sprite_height - 1) begin
+                                bit_cnt <= 0;
+                                row_cnt <= row_cnt + 1;
+                                state <= STATE_DRAW_FETCH;
+                            end else begin
+                                state <= STATE_FETCH_1; // entire sprite is finished drawing                                
+                            end 
+                            
+                            // Collision detection (XOR)
+                            if (vram_read_data) begin
+                                // Set collision flag
+                                v[15] <= 1;                               
+                            end
+                        end    
+                        
+                    end else begin    // Bit is OFF
+                        vram_write_en <= 0; // Cannot write anything
+                        // Pixel in byte is handeled, advance counters
+                        if (bit_cnt < 7) begin
+                            bit_cnt <= bit_cnt + 1;
+                        end else if (row_cnt < sprite_height - 1) begin
+                            bit_cnt <= 0;
+                            row_cnt <= row_cnt + 1;
+                            state <= STATE_DRAW_FETCH;
+                        end else begin
+                            state <= STATE_FETCH_1; // entire sprite is finished drawing                                
+                        end
                     end
                 
                 end
@@ -141,6 +182,8 @@ module cpu(
                                 // 00E0: Clear Screen
                                 vram_addr <= 0;
                                 state <= STATE_CLEAR;
+                            end else begin
+                                state <= STATE_FETCH_1;
                             end
                         end
                         
@@ -171,11 +214,11 @@ module cpu(
                         // Root D: Draw (DXYN), draws to screen
                         4'hD: begin
                             // Fetch starting x, y coordinates and sprite height
-                            start_x <= v[op[11:8]] % 64; 
-                            start_y <= v[op[7:4]] % 32;
+                            start_x <= v[op[11:8]][5:0]; 
+                            start_y <= v[op[7:4]][4:0];
                             sprite_height <= op[3:0];
                             
-                            // Clear register 15
+                            // Reset collision flag
                             v[15] <= 0;
                             
                             // Reset row and bit counter registers
