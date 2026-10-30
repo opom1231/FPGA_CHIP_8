@@ -40,11 +40,11 @@ module cpu(
     reg [15:0] ir; // Index register, points to specific memory addresses
     reg [15:0] op; // Opcode, holds current instruction pulled from memory
     
-    // We need to wait a full clock cycle to register incoming address into ram
-    reg read_wait;
+    // BRAM output needs time to stabilize 
+    reg [1:0] wait_cnt;
    
     // General puprpose registers
-    reg [7:0] v [0:15];
+    (* ram_style = "registers" *) reg [7:0] v [0:15];
     
     // Pixel coordinates
     reg [5:0] start_x;
@@ -67,25 +67,31 @@ module cpu(
     localparam STATE_DRAW_FETCH = 3'd4; // For fetching sprite bits from ROM
     localparam STATE_DRAW_PIXEL = 3'd5;
     
+    localparam X_OFF = 16;   // (96-64)/2
+    localparam Y_OFF = 16;   // (64-32)/2
     
+    wire [12:0] gx    = X_OFF + start_x + bit_cnt;
+    wire [12:0] gy    = Y_OFF + start_y + row_cnt;
+    wire [12:0] gaddr = (gy << 6) + (gy << 5) + gx;   // gy*96 + gx
     always @(posedge clk) begin
         if (rst) begin
             state <= 0;
             pc <= 12'h200;
-            read_wait <= 0;
+            wait_cnt <= 0;
             vram_write_en <= 0;
         end
         
         else begin
+            vram_write_en <= 0;
             case(state)
                 STATE_FETCH_1: begin
                     rom_addr <= pc;
                     
                     // Wait for data to stabilize
-                    if (!read_wait) begin
-                        read_wait <= 1;
+                    if (wait_cnt < 2) begin
+                        wait_cnt <= wait_cnt + 1;
                     end else begin
-                        read_wait <= 0;
+                        wait_cnt <= 0;
                         
                         // Capture incoming 8 bit instruction into top half of opcode
                         op[15:8] <= rom_instr;
@@ -98,10 +104,10 @@ module cpu(
                 STATE_FETCH_2: begin
                     rom_addr <= pc;
                     
-                    if (!read_wait) begin
-                        read_wait <= 1;
+                    if (wait_cnt < 2) begin
+                        wait_cnt <= wait_cnt + 1;
                     end else begin
-                        read_wait <= 0;
+                        wait_cnt <= 0;
                         op[7:0] <= rom_instr;
                         pc <= pc + 1;
                         state <= STATE_DECODE;         
@@ -113,10 +119,10 @@ module cpu(
                     rom_addr <= ir + row_cnt;
                     
                     // Wait for address to stablize 
-                    if (!read_wait) begin
-                        read_wait <= 1;
+                    if (wait_cnt < 2) begin
+                        wait_cnt <= wait_cnt + 1;
                     end else begin
-                        read_wait <= 0;
+                        wait_cnt <= 0;
                         // Store fetched data into sprite register
                         sprite_byte <= rom_instr;
                         state <= STATE_DRAW_PIXEL;
@@ -129,14 +135,14 @@ module cpu(
                     // Go through each of the 8 sprite bits fetched from ROM
                     if(sprite_byte[7 - bit_cnt]) begin // Bit is ON
                         // Calculate the VRAM address of current pixel
-                        vram_addr <= {2'b00, (start_y + row_cnt), (start_x + bit_cnt)};   
+                        vram_addr <= gaddr;  
                         vram_write_en <= 0; 
                         
                         // Wait for ROM output
-                        if(!read_wait) begin
-                            read_wait <= 1;
+                        if(wait_cnt < 2) begin
+                            wait_cnt <= wait_cnt + 1;
                         end else begin
-                            read_wait <= 0;
+                            wait_cnt <= 0;
                             vram_write_en <= 1;
                             vram_write_data <= ~vram_read_data;
                             // Pixel in byte is handeled, advance counters

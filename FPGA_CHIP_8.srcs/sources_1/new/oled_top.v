@@ -88,7 +88,7 @@ module oled_top(
     // Check for a frame tick in render_engine to update buffer_sel
     always @(posedge clk) begin
         if(frame_tick == 1) begin
-            buffer_sel <= ~buffer_sel;
+            buffer_sel <= 0; // Disable for now
         end 
     end
     
@@ -107,7 +107,7 @@ module oled_top(
        // Will start with WE input from compute_engine
         .clkb(clk),
         .enb(1'b1), // always on
-        .web(buffer_sel ?  1'b0 : compute_write_en), 
+        .web(compute_write_en), 
         .addrb(compute_addr),   
         .dinb(compute_next_state), // Begins by storing updated cell states from compute_engine
         .doutb(ram1_compute_state)
@@ -130,7 +130,7 @@ module oled_top(
        // Will start with WE = 0
         .clkb(clk),
         .enb(1'b1), // always on
-        .web(buffer_sel ? compute_write_en : 1'b0), // controlled by compute_engine 
+        .web(compute_write_en), // controlled by compute_engine 
         .addrb(compute_addr),   
         .dinb(compute_next_state), // If WE = 1, update compute address with new state
         .doutb(ram2_compute_state) // into compute_state mux
@@ -141,6 +141,7 @@ module oled_top(
    game_rom rom(
         .clka(clk),
         .addra(rom_addr),
+        .ena(1'b1),
         .douta(rom_data)
    );
     
